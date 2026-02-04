@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal Movie Library</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <header>
+    <h1>🎬 Personal Movie Library</h1>
+    <button id="addBtn">Add Movie</button>
+  </header>
+
+  <main class="container">
+    <div id="library"></div>
+  </main>
+
+  <div id="overlay" class="overlay">
+    <div class="modal">
+      <header>
+        <h2>Add Movie</h2>
+        <button class="secondary" id="closeBtn">Close</button>
+      </header>
+      <div class="body">
+        <div class="row">
+          <input id="query" placeholder="Search…" />
+          <select id="type">
+            <option value="movie">Movie name</option>
+            <option value="actor">Actor</option>
+            <option value="director">Director</option>
+            <option value="producer">Producer</option>
+          </select>
+          <button id="searchBtn">Search</button>
+        </div>
+
+        <div id="status" class="spinner"></div>
+        <div id="results" class="results"></div>
+
+        <button id="loadMoreBtn" class="secondary" style="display:none;margin-top:12px;">
+          Load more
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="detailsOverlay" class="overlay">
+    <div class="modal">
+      <header>
+        <h2 id="detailsTitle"></h2>
+        <button class="secondary" id="detailsClose">Close</button>
+      </header>
+      <div class="body" id="detailsBody"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
