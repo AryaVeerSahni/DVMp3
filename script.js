@@ -121,7 +121,7 @@ const TMDB_KEY = '158b14d2caddf15a72691e1617061d51';
               <span class="muted">TMDB ${m.rating?.toFixed?.(1) ?? '—'}</span>
               <div class="rating-control">
                 <button class="rate-btn minus">-</button>
-                <span class="rating-value">${m.myScore.toFixed(1)}</span>
+                <input class="rating-value" type="number" min="0" max="10" step="0.1" value="${m.myScore.toFixed(1)}">
                 <button class="rate-btn plus">+</button>
               </div>
             </div>
@@ -146,8 +146,15 @@ const TMDB_KEY = '158b14d2caddf15a72691e1617061d51';
 
         const updateRating = (delta) => {
           m.myScore = Math.min(10, Math.max(0, +(m.myScore + delta).toFixed(1)));
-          valueEl.textContent = m.myScore.toFixed(1);
+          valueEl.value = m.myScore.toFixed(1);
         };
+
+        valueEl.addEventListener('blur', () => {
+          let v = parseFloat(valueEl.value);
+          if (isNaN(v)) m.myScore = 0;
+          m.myScore = Math.min(10, Math.max(0, v));
+          valueEl.value = m.myScore.toFixed(1);
+        });
 
         let holdTimeout = null;
         let holdInterval = null;
