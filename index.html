@@ -10,8 +10,42 @@
 <body>
   <header>
     <h1>🎬 Personal Movie Library</h1>
+    
+    <div class="controls" style="display:flex; gap:8px; align-items:center;">
+      <input type="text" id="libSearch" placeholder="Search library..." />
+      
+      <select id="sortType">
+        <option value="added">Date Added</option>
+        <option value="title">Name</option>
+        <option value="releaseDate">Release Date</option>
+        <option value="rating">TMDB Rating</option>
+        <option value="myScore">My Rating</option>
+      </select>
+      
+      <button id="sortDirBtn" class="secondary" data-dir="asc" title="Toggle Sort Order">⬆️</button>
+      <button id="filterToggle" class="secondary">Filters</button>
+    </div>
+
     <button id="addBtn">Add Movie</button>
   </header>
+
+  <div id="filterPanel" class="filter-panel" style="display:none;">
+    <div class="filter-row">
+      <div class="filter-group">
+        <label>Release Year:</label>
+        <div class="year-inputs">
+          <input type="number" id="yearStart" placeholder="From" min="1900" max="2099">
+          <span>-</span>
+          <input type="number" id="yearEnd" placeholder="To" min="1900" max="2099">
+        </div>
+      </div>
+    </div>
+    <div class="filter-group">
+      <label>Genres:</label>
+      <div id="genreList" class="genre-list">
+        </div>
+    </div>
+  </div>
 
   <main class="container">
     <div id="library"></div>
@@ -52,6 +86,20 @@
         <button class="secondary" id="detailsClose">Close</button>
       </header>
       <div class="body" id="detailsBody"></div>
+    </div>
+  </div>
+
+  <div id="reviewOverlay" class="overlay">
+    <div class="modal">
+      <header>
+        <h2 id="reviewTitle">Personal Review</h2>
+        <button class="secondary" id="reviewClose">Close</button>
+      </header>
+      <div class="body">
+        <p class="muted" style="margin-top:0">Write your personal thoughts, review, or notes about this movie:</p>
+        <textarea id="reviewInput" placeholder="I liked this movie because..."></textarea>
+        <button id="saveReviewBtn" style="margin-top:12px; width:100%">Save Review</button>
+      </div>
     </div>
   </div>
 

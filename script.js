@@ -1,122 +1,245 @@
 const TMDB_KEY = '158b14d2caddf15a72691e1617061d51';
-    const TMDB = 'https://api.themoviedb.org/3';
-    const IMG = 'https://image.tmdb.org/t/p/w342';
+const TMDB = 'https://api.themoviedb.org/3';
+const IMG = 'https://image.tmdb.org/t/p/w342';
 
-    const state = {
-      library: []
-    };
-    const searchState = {
-      query: '',
-      type: 'movie',
-      page: 1,
-      totalPages: 1,
-      personId: null,
-      cachedMovies: []
-    };
+const savedData = JSON.parse(localStorage.getItem('movieLibraryState')) || {};
 
-    async function fetchJSON(url) {
-      const r = await fetch(url);
-      if (!r.ok) throw new Error('Network error');
-      return r.json();
+const state = {
+  library: savedData.library || []
+};
+
+const searchState = {
+  query: '',
+  type: 'movie',
+  page: 1,
+  totalPages: 1,
+  personId: null,
+  cachedMovies: []
+};
+
+function saveData() {
+  localStorage.setItem('movieLibraryState', JSON.stringify({
+    library: state.library,
+    sortType: document.getElementById('sortType').value,
+    sortDir: document.getElementById('sortDirBtn').dataset.dir
+  }));
+}
+
+async function fetchJSON(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('Network error');
+  return r.json();
+}
+
+const api = {
+  searchMovie: (q, page = 1) =>
+    fetchJSON(`${TMDB}/search/movie?api_key=${TMDB_KEY}&query=${encodeURIComponent(q)}&page=${page}`),
+
+  searchPerson: (q) =>
+    fetchJSON(`${TMDB}/search/person?api_key=${TMDB_KEY}&query=${encodeURIComponent(q)}`),
+
+  credits: (id) =>
+    fetchJSON(`${TMDB}/person/${id}/movie_credits?api_key=${TMDB_KEY}`),
+
+  movieDetails: (id) =>
+    fetchJSON(`${TMDB}/movie/${id}?api_key=${TMDB_KEY}`),
+
+  movieCredits: (id) =>
+    fetchJSON(`${TMDB}/movie/${id}/credits?api_key=${TMDB_KEY}`)
+};
+
+const libEl = document.getElementById('library');
+const overlay = document.getElementById('overlay');
+const resultsEl = document.getElementById('results');
+const statusEl = document.getElementById('status');
+const loadMoreBtn = document.getElementById('loadMoreBtn');
+const queryInput = document.getElementById('query');
+const typeSelect = document.getElementById('type');
+
+const sortType = document.getElementById('sortType');
+const sortDirBtn = document.getElementById('sortDirBtn');
+const libSearch = document.getElementById('libSearch');
+
+const detailsOverlay = document.getElementById('detailsOverlay');
+const detailsTitle = document.getElementById('detailsTitle');
+const detailsBody = document.getElementById('detailsBody');
+
+if (savedData.sortType) sortType.value = savedData.sortType;
+if (savedData.sortDir) {
+  sortDirBtn.dataset.dir = savedData.sortDir;
+  sortDirBtn.textContent = savedData.sortDir === 'asc' ? '⬆️' : '⬇️';
+}
+
+const filterToggle = document.getElementById('filterToggle');
+const filterPanel = document.getElementById('filterPanel');
+const yearStartInput = document.getElementById('yearStart');
+const yearEndInput = document.getElementById('yearEnd');
+const genreListEl = document.getElementById('genreList');
+
+const reviewOverlay = document.getElementById('reviewOverlay');
+const reviewTitle = document.getElementById('reviewTitle');
+const reviewInput = document.getElementById('reviewInput');
+const saveReviewBtn = document.getElementById('saveReviewBtn');
+const reviewClose = document.getElementById('reviewClose');
+let currentReviewMovieId = null;
+
+const GENRES = {
+  28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy", 80: "Crime",
+  99: "Documentary", 18: "Drama", 10751: "Family", 14: "Fantasy", 36: "History",
+  27: "Horror", 10402: "Music", 9648: "Mystery", 10749: "Romance", 878: "Sci-Fi",
+  10770: "TV Movie", 53: "Thriller", 10752: "War", 37: "Western"
+};
+
+filterToggle.onclick = () => {
+  const isHidden = filterPanel.style.display === 'none';
+  filterPanel.style.display = isHidden ? 'block' : 'none';
+};
+
+Object.entries(GENRES).forEach(([id, name]) => {
+  const label = document.createElement('label');
+  label.className = 'genre-check';
+  label.innerHTML = `<input type="checkbox" value="${id}"> ${name}`;
+  label.querySelector('input').addEventListener('change', renderLibrary);
+  genreListEl.appendChild(label);
+});
+
+yearStartInput.addEventListener('input', renderLibrary);
+yearEndInput.addEventListener('input', renderLibrary);
+
+function openReviewModal(movie) {
+  currentReviewMovieId = movie.id;
+  reviewTitle.textContent = `Review: ${movie.title}`;
+  reviewInput.value = movie.personalReview || '';
+  reviewOverlay.classList.add('open');
+}
+
+saveReviewBtn.onclick = () => {
+  if (currentReviewMovieId) {
+    const movie = state.library.find(m => m.id === currentReviewMovieId);
+    if (movie) {
+      movie.personalReview = reviewInput.value;
+      saveData();
     }
+  }
+  reviewOverlay.classList.remove('open');
+  renderLibrary();
+};
 
-    const api = {
-      searchMovie: (q, page = 1) =>
-        fetchJSON(`${TMDB}/search/movie?api_key=${TMDB_KEY}&query=${encodeURIComponent(q)}&page=${page}`),
+reviewClose.onclick = () => reviewOverlay.classList.remove('open');
 
-      searchPerson: (q) =>
-        fetchJSON(`${TMDB}/search/person?api_key=${TMDB_KEY}&query=${encodeURIComponent(q)}`),
+async function showDetails(movie) {
+  detailsTitle.textContent = movie.title;
+  detailsBody.innerHTML = '<p class="muted">Loading details…</p>';
+  detailsOverlay.classList.add('open');
 
-      credits: (id) =>
-        fetchJSON(`${TMDB}/person/${id}/movie_credits?api_key=${TMDB_KEY}`),
+  try {
+    const [details, credits] = await Promise.all([
+      api.movieDetails(movie.id),
+      api.movieCredits(movie.id)
+    ]);
 
-      movieDetails: (id) =>
-        fetchJSON(`${TMDB}/movie/${id}?api_key=${TMDB_KEY}`),
+    const year = details.release_date?.slice(0, 4) ?? '—';
+    const runtime = details.runtime ? `${details.runtime} min` : '—';
+    const genres = details.genres?.map(g => g.name).join(', ') || '—';
 
-      movieCredits: (id) =>
-        fetchJSON(`${TMDB}/movie/${id}/credits?api_key=${TMDB_KEY}`)
-    };
+    const cast = credits.cast
+      .slice(0, 5)
+      .map(c => c.name)
+      .join(', ') || '—';
 
-    const libEl = document.getElementById('library');
-    const overlay = document.getElementById('overlay');
-    const resultsEl = document.getElementById('results');
-    const statusEl = document.getElementById('status');
-    const loadMoreBtn = document.getElementById('loadMoreBtn');
-    const queryInput = document.getElementById('query');
-    const typeSelect = document.getElementById('type');
+    detailsBody.innerHTML = `
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <img src="${details.poster_path ? IMG + details.poster_path : ''}"
+             style="width:220px;border-radius:12px" />
+        <div style="max-width:500px">
+          <p><strong>Release year:</strong> ${year}</p>
+          <p><strong>Runtime:</strong> ${runtime}</p>
+          <p><strong>Genres:</strong> ${genres}</p>
+          <p><strong>TMDB rating:</strong> ${details.vote_average?.toFixed(1) ?? '—'}</p>
+          <p style="margin-top:10px">
+            <strong>Cast:</strong><br>
+            <span class="muted">${cast}</span>
+          </p>
+          <p style="margin-top:10px">
+            <strong>Overview:</strong><br>
+            <span class="muted">${details.overview || 'No description available.'}</span>
+          </p>
+          ${movie.personalReview ? `<p style="margin-top:14px; padding-top:10px; border-top:1px solid #333;"><strong>Your Review:</strong><br><span style="color:#d1d5db; white-space: pre-wrap;">${movie.personalReview}</span></p>` : ''}
+        </div>
+      </div>
+    `;
+  } catch (err) {
+    detailsBody.innerHTML = '<p class="muted">Failed to load movie details.</p>';
+  }
+}
 
-    const detailsOverlay = document.getElementById('detailsOverlay');
-    const detailsTitle = document.getElementById('detailsTitle');
-    const detailsBody = document.getElementById('detailsBody');
+function renderLibrary() {
+  libEl.innerHTML = '';
+  
+  const query = libSearch.value.toLowerCase().trim();
+  const selectedGenres = Array.from(genreListEl.querySelectorAll('input:checked')).map(cb => parseInt(cb.value));
+  
+  const startYear = parseInt(yearStartInput.value) || 0;
+  const endYear = parseInt(yearEndInput.value) || 9999;
 
-    async function showDetails(movie) {
-      detailsTitle.textContent = movie.title;
-      detailsBody.innerHTML = '<p class="muted">Loading details…</p>';
-      detailsOverlay.classList.add('open');
+  let list = state.library.filter(m => {
+    const matchesSearch = m.title.toLowerCase().includes(query);
+    const releaseYear = m.releaseDate ? parseInt(m.releaseDate.split('-')[0]) : 0;
+    const matchesYear = releaseYear >= startYear && releaseYear <= endYear;
+    const matchesGenre = selectedGenres.length === 0 || (m.genreIds && m.genreIds.some(id => selectedGenres.includes(id)));
+    return matchesSearch && matchesYear && matchesGenre;
+  });
 
-      try {
-        const [details, credits] = await Promise.all([
-          api.movieDetails(movie.id),
-          api.movieCredits(movie.id)
-        ]);
+  const type = sortType.value;
+  const dir = sortDirBtn.dataset.dir === 'desc' ? -1 : 1;
 
-        const year = details.release_date?.slice(0, 4) ?? '—';
-        const runtime = details.runtime ? `${details.runtime} min` : '—';
-        const genres = details.genres?.map(g => g.name).join(', ') || '—';
-
-        const cast = credits.cast
-          .slice(0, 5)
-          .map(c => c.name)
-          .join(', ') || '—';
-
-        detailsBody.innerHTML = `
-          <div style="display:flex;gap:16px;flex-wrap:wrap">
-            <img src="${details.poster_path ? IMG + details.poster_path : ''}"
-                 style="width:220px;border-radius:12px" />
-            <div style="max-width:500px">
-              <p><strong>Release year:</strong> ${year}</p>
-              <p><strong>Runtime:</strong> ${runtime}</p>
-              <p><strong>Genres:</strong> ${genres}</p>
-              <p><strong>TMDB rating:</strong> ${details.vote_average?.toFixed(1) ?? '—'}</p>
-              <p style="margin-top:10px">
-                <strong>Cast:</strong><br>
-                <span class="muted">${cast}</span>
-              </p>
-              <p style="margin-top:10px">
-                <strong>Overview:</strong><br>
-                <span class="muted">${details.overview || 'No description available.'}</span>
-              </p>
-            </div>
-          </div>
-        `;
-      } catch (err) {
-        detailsBody.innerHTML = '<p class="muted">Failed to load movie details.</p>';
+  if (list.length > 0 && type !== 'added') {
+    list.sort((a, b) => {
+      let valA, valB;
+      switch (type) {
+        case 'title': valA = a.title.toLowerCase(); valB = b.title.toLowerCase(); break;
+        case 'releaseDate': valA = a.releaseDate || '0000'; valB = b.releaseDate || '0000'; break;
+        case 'rating': valA = a.rating || 0; valB = b.rating || 0; break;
+        case 'myScore': valA = a.myScore || 0; valB = b.myScore || 0; break;
       }
-    }
+      if (valA < valB) return -1 * dir;
+      if (valA > valB) return 1 * dir;
+      return type === 'rating' ? a.title.localeCompare(b.title) : b.rating - a.rating;
+    });
+  }
+  if (type === 'added' && dir === -1) list.reverse();
 
-    function renderLibrary() {
-      libEl.innerHTML = '';
-      if (!state.library.length) {
-        libEl.innerHTML = `<div class="empty">Your library is empty. Click on the "Add Movie" Button to add a movie!<br><br>आपकी लाइब्रेरी ख़ाली है। इसमें फ़िल्म शामिल करने हेतु "Add Movie" का बटन दबाएँ!</div>`;
-        return;
-      }
+  if (!state.library.length) {
+    libSearch.style.display = `none`;
+    libEl.innerHTML = `<div class="empty">Your library is empty. Click on the "Add Movie" Button to add a movie!</div>`;
+    return;
+  }else {libSearch.style.display = `block`;}
+  
+  if (list.length === 0) {
+    libEl.innerHTML = `<div class="empty" style="font-size:1.2rem">No movies match your filters.</div>`;
+    return;
+  }
 
-      const grid = document.createElement('div');
-      grid.className = 'grid';
+  const grid = document.createElement('div');
+  grid.className = 'grid';
 
-      state.library.forEach(m => {
-        const c = document.createElement('div');
-        c.className = 'card';
+  list.forEach(m => {
+    const c = document.createElement('div');
+    c.className = 'card';
+    
+    const genreNames = (m.genreIds || []).slice(0, 2).map(id => GENRES[id]).filter(Boolean).join(', ');
 
-        c.innerHTML = `
+    c.innerHTML = `
           <button class="menu-btn">⋮</button>
           <div class="menu">
             <button class="view">View details</button>
             <button class="remove">Remove</button>
+            <button class="review-btn">Personal Review</button>
           </div>
           <img src="${m.poster ? IMG+m.poster : ''}">
           <div class="p">
             <h3>${m.title}</h3>
+            <div style="font-size:0.75rem; color:#9aa0b4; margin-bottom:6px;">${genreNames}</div>
             <div class="ratings">
               <span class="muted">TMDB ${m.rating?.toFixed?.(1) ?? '—'}</span>
               <div class="rating-control">
@@ -126,225 +249,246 @@ const TMDB_KEY = '158b14d2caddf15a72691e1617061d51';
               </div>
             </div>
           </div>
-        `;
+    `;
+    
+    const menu = c.querySelector('.menu');
+    c.querySelector('.menu-btn').onclick = e => { e.stopPropagation(); menu.style.display = menu.style.display === 'block' ? 'none' : 'block'; };
+    c.querySelector('.view').onclick = () => showDetails(m);
+    c.querySelector('.remove').onclick = () => {
+      state.library = state.library.filter(x => x.id !== m.id);
+      saveData();
+      renderLibrary();
+    };
+    
+    c.querySelector('.review-btn').onclick = (e) => {
+        e.stopPropagation();
+        menu.style.display = 'none';
+        openReviewModal(m);
+    };
 
-        const menu = c.querySelector('.menu');
-        c.querySelector('.menu-btn').onclick = e => {
-          e.stopPropagation();
-          menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-        };
+    const valueEl = c.querySelector('.rating-value');
+    const plusBtn = c.querySelector('.plus');
+    const minusBtn = c.querySelector('.minus');
 
-        c.querySelector('.view').onclick = () => showDetails(m);
-        c.querySelector('.remove').onclick = () => {
-          state.library = state.library.filter(x => x.id !== m.id);
-          renderLibrary();
-        };
+    const updateRating = (delta) => {
+        m.myScore = Math.min(10, Math.max(0, +(m.myScore + delta).toFixed(1)));
+        valueEl.value = m.myScore.toFixed(1);
+    };
+    
+    valueEl.addEventListener('blur', () => {
+        let v = parseFloat(valueEl.value);
+        if (isNaN(v)) m.myScore = 0;
+        m.myScore = Math.min(10, Math.max(0, v));
+        valueEl.value = m.myScore.toFixed(1);
+        saveData();
+    });
 
-        const valueEl = c.querySelector('.rating-value');
-        const plusBtn = c.querySelector('.plus');
-        const minusBtn = c.querySelector('.minus');
-
-        const updateRating = (delta) => {
-          m.myScore = Math.min(10, Math.max(0, +(m.myScore + delta).toFixed(1)));
-          valueEl.value = m.myScore.toFixed(1);
-        };
-
-        valueEl.addEventListener('blur', () => {
-          let v = parseFloat(valueEl.value);
-          if (isNaN(v)) m.myScore = 0;
-          m.myScore = Math.min(10, Math.max(0, v));
-          valueEl.value = m.myScore.toFixed(1);
-        });
-
-        let holdTimeout = null;
-        let holdInterval = null;
-
-        const HOLD_DELAY = 400;
-        const HOLD_SPEED = 80;
-
-        const startHold = (delta) => {
-          updateRating(delta);
-          holdTimeout = setTimeout(() => {
-            holdInterval = setInterval(() => updateRating(delta), HOLD_SPEED);
-          }, HOLD_DELAY);
-        };
-
-        const stopHold = () => {
-          clearTimeout(holdTimeout);
-          clearInterval(holdInterval);
-          holdTimeout = holdInterval = null;
-        };
-
-        const handleStart = (e, delta) => {
-          if (e.cancelable) e.preventDefault();
-          startHold(delta);
-        };
-
-        plusBtn.addEventListener('mousedown', (e) => handleStart(e, 0.1));
-        minusBtn.addEventListener('mousedown', (e) => handleStart(e, -0.1));
-
-        plusBtn.addEventListener('touchstart', (e) => handleStart(e, 0.1), { passive: false });
-        minusBtn.addEventListener('touchstart', (e) => handleStart(e, -0.1), { passive: false });
-
-        ['mouseup', 'mouseleave', 'touchend', 'touchcancel']
-        .forEach(evt => {
-          plusBtn.addEventListener(evt, stopHold);
-          minusBtn.addEventListener(evt, stopHold);
-        });
-
-        grid.appendChild(c);
-      });
-
-      libEl.appendChild(grid);
-    }
-
-    function renderResults(list) {
-      list.forEach(m => {
-        const r = document.createElement('div');
-        r.className = 'result';
-
-        r.innerHTML = `
-          <button class="menu-btn">⋮</button>
-          <div class="menu">
-            <button class="view">View details</button>
-          </div>
-          <img src="${m.poster ? IMG+m.poster : ''}">
-          <div class="p">
-            <div class="muted">${m.rating?.toFixed?.(1) ?? '—'}</div>
-            <strong>${m.title}</strong>
-            <div style="margin-top:6px"><button class="add-btn">Add</button></div>
-          </div>
-        `;
-
-        const menu = r.querySelector('.menu');
-        r.querySelector('.menu-btn').onclick = e => {
-          e.stopPropagation();
-          menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-        };
-
-        r.querySelector('.view').onclick = () => showDetails(m);
-        r.querySelector('.add-btn').onclick = () => {
-          if (!state.library.some(x => x.id === m.id)) {
-            state.library.push({ ...m,
-              myScore: 0
-            });
-            renderLibrary();
-          }
-          closeModal();
-        };
-
-        resultsEl.appendChild(r);
-      });
-    }
-
-    async function performSearch() {
-      const q = queryInput.value.trim();
-      const type = typeSelect.value;
-      if (!q) return;
-
-      resultsEl.innerHTML = '';
-      statusEl.textContent = 'Loading…';
-      loadMoreBtn.style.display = 'none';
-
-      searchState.query = q;
-      searchState.type = type;
-      searchState.page = 1;
-      searchState.personId = null;
-      searchState.cachedMovies = [];
-
-      try {
-        let movies = [];
-
-        if (type === 'movie') {
-          const d = await api.searchMovie(q, 1);
-          searchState.totalPages = d.total_pages;
-          movies = d.results;
-        } else {
-          const p = await api.searchPerson(q);
-          if (!p.results.length) throw new Error('No person found');
-          const personId = p.results[0].id;
-          searchState.personId = personId;
-          const credits = await api.credits(personId);
-
-          if (type === 'actor') movies = credits.cast;
-          if (type === 'director') movies = credits.crew.filter(m => m.job === 'Director');
-          if (type === 'producer') movies = credits.crew.filter(m => m.job === 'Producer');
-
-          searchState.totalPages = 1;
-        }
-
-        const map = new Map();
-        movies.forEach(m => {
-          map.set(m.id, {
-            id: m.id,
-            title: m.title,
-            poster: m.poster_path,
-            rating: m.vote_average
-          });
-        });
-
-        const list = [...map.values()];
-        searchState.cachedMovies = list;
-
-        statusEl.textContent = list.length ? '' : 'No results found';
-        renderResults(list);
-
-        if (type === 'movie' && searchState.page < searchState.totalPages) {
-          loadMoreBtn.style.display = 'block';
-        }
-      } catch (e) {
-        statusEl.textContent = e.message;
+    let holdTimeout, holdInterval;
+    const startHold = (delta) => {
+        updateRating(delta);
+        holdTimeout = setTimeout(() => {
+            holdInterval = setInterval(() => updateRating(delta), 80);
+        }, 400);
+    };
+    const stopHold = () => { 
+      if (holdTimeout || holdInterval) {
+        clearTimeout(holdTimeout); 
+        clearInterval(holdInterval);
+        saveData();
       }
+    };
+    
+    const handleStart = (e, delta) => { if (e.cancelable) e.preventDefault(); startHold(delta); };
+
+    plusBtn.addEventListener('mousedown', (e) => handleStart(e, 0.1));
+    minusBtn.addEventListener('mousedown', (e) => handleStart(e, -0.1));
+    plusBtn.addEventListener('touchstart', (e) => handleStart(e, 0.1), { passive: false });
+    minusBtn.addEventListener('touchstart', (e) => handleStart(e, -0.1), { passive: false });
+    ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(evt => {
+        plusBtn.addEventListener(evt, stopHold);
+        minusBtn.addEventListener(evt, stopHold);
+    });
+    plusBtn.addEventListener('click', () => { updateRating(0.1); saveData(); });
+    minusBtn.addEventListener('click', () => { updateRating(-0.1); saveData(); });
+
+    grid.appendChild(c);
+  });
+
+  libEl.appendChild(grid);
+}
+
+libSearch.addEventListener('input', renderLibrary);
+sortType.addEventListener('change', () => {
+  saveData();
+  renderLibrary();
+});
+
+sortDirBtn.onclick = () => {
+  const current = sortDirBtn.dataset.dir;
+  if (current === 'asc') {
+    sortDirBtn.dataset.dir = 'desc';
+    sortDirBtn.textContent = '⬇️';
+  } else {
+    sortDirBtn.dataset.dir = 'asc';
+    sortDirBtn.textContent = '⬆️';
+  }
+  saveData();
+  renderLibrary();
+};
+
+function renderResults(list) {
+  list.forEach(m => {
+    const r = document.createElement('div');
+    r.className = 'result';
+
+    r.innerHTML = `
+      <button class="menu-btn">⋮</button>
+      <div class="menu">
+        <button class="view">View details</button>
+      </div>
+      <img src="${m.poster ? IMG+m.poster : ''}">
+      <div class="p">
+        <div class="muted">${m.rating?.toFixed?.(1) ?? '—'}</div>
+        <strong>${m.title}</strong>
+        <div style="margin-top:6px"><button class="add-btn">Add</button></div>
+      </div>
+    `;
+
+    const menu = r.querySelector('.menu');
+    r.querySelector('.menu-btn').onclick = e => {
+      e.stopPropagation();
+      menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+    };
+
+    r.querySelector('.view').onclick = () => showDetails(m);
+    r.querySelector('.add-btn').onclick = () => {
+      if (!state.library.some(x => x.id === m.id)) {
+        state.library.push({ ...m,
+          myScore: 0,
+          personalReview: ''
+        });
+        saveData();
+        renderLibrary();
+      }
+      closeModal();
+    };
+
+    resultsEl.appendChild(r);
+  });
+}
+
+async function performSearch() {
+  const q = queryInput.value.trim();
+  const type = typeSelect.value;
+  if (!q) return;
+
+  resultsEl.innerHTML = '';
+  statusEl.textContent = 'Loading…';
+  loadMoreBtn.style.display = 'none';
+
+  searchState.query = q;
+  searchState.type = type;
+  searchState.page = 1;
+  searchState.personId = null;
+  searchState.cachedMovies = [];
+
+  try {
+    let movies = [];
+
+    if (type === 'movie') {
+      const d = await api.searchMovie(q, 1);
+      searchState.totalPages = d.total_pages;
+      movies = d.results;
+    } else {
+      const p = await api.searchPerson(q);
+      if (!p.results.length) throw new Error('No person found');
+      const personId = p.results[0].id;
+      searchState.personId = personId;
+      const credits = await api.credits(personId);
+
+      if (type === 'actor') movies = credits.cast;
+      if (type === 'director') movies = credits.crew.filter(m => m.job === 'Director');
+      if (type === 'producer') movies = credits.crew.filter(m => m.job === 'Producer');
+
+      searchState.totalPages = 1;
     }
 
-    async function loadMore() {
-      if (searchState.type !== 'movie') return;
-
-      searchState.page++;
-      const d = await api.searchMovie(searchState.query, searchState.page);
-
-      const list = d.results.map(m => ({
+    const map = new Map();
+    movies.forEach(m => {
+      map.set(m.id, {
         id: m.id,
         title: m.title,
         poster: m.poster_path,
-        rating: m.vote_average
-      }));
-
-      renderResults(list);
-
-      if (searchState.page >= d.total_pages) {
-        loadMoreBtn.style.display = 'none';
-      }
-    }
-
-    function openModal() {
-      overlay.classList.add('open');
-      loadMoreBtn.style.display = 'none';
-    }
-
-    function closeModal() {
-      overlay.classList.remove('open');
-      resultsEl.innerHTML = '';
-      statusEl.textContent = '';
-      queryInput.value = '';
-      typeSelect.value = 'movie';
-    }
-
-    document.getElementById('addBtn').onclick = openModal;
-    document.getElementById('closeBtn').onclick = closeModal;
-    document.getElementById('searchBtn').onclick = performSearch;
-    document.getElementById('detailsClose').onclick = () => detailsOverlay.classList.remove('open');
-    loadMoreBtn.onclick = loadMore;
-
-    queryInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        performSearch();
-      }
+        rating: m.vote_average,
+        releaseDate: m.release_date,
+        genreIds: m.genre_ids || []
+      });
     });
 
-    document.addEventListener('click', () => {
-      document.querySelectorAll('.menu').forEach(m => m.style.display = 'none');
-    });
+    const list = [...map.values()];
+    searchState.cachedMovies = list;
 
-    renderLibrary();
+    statusEl.textContent = list.length ? '' : 'No results found';
+    renderResults(list);
+
+    if (type === 'movie' && searchState.page < searchState.totalPages) {
+      loadMoreBtn.style.display = 'block';
+    }
+  } catch (e) {
+    statusEl.textContent = e.message;
+  }
+}
+
+async function loadMore() {
+  if (searchState.type !== 'movie') return;
+
+  searchState.page++;
+  const d = await api.searchMovie(searchState.query, searchState.page);
+
+  const list = d.results.map(m => ({
+    id: m.id,
+    title: m.title,
+    poster: m.poster_path,
+    rating: m.vote_average,
+    releaseDate: m.release_date,
+    genreIds: m.genre_ids || []
+  }));
+
+  renderResults(list);
+
+  if (searchState.page >= d.total_pages) {
+    loadMoreBtn.style.display = 'none';
+  }
+}
+
+function openModal() {
+  overlay.classList.add('open');
+  loadMoreBtn.style.display = 'none';
+}
+
+function closeModal() {
+  overlay.classList.remove('open');
+  resultsEl.innerHTML = '';
+  statusEl.textContent = '';
+  queryInput.value = '';
+  typeSelect.value = 'movie';
+}
+
+document.getElementById('addBtn').onclick = openModal;
+document.getElementById('closeBtn').onclick = closeModal;
+document.getElementById('searchBtn').onclick = performSearch;
+document.getElementById('detailsClose').onclick = () => detailsOverlay.classList.remove('open');
+loadMoreBtn.onclick = loadMore;
+
+queryInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    performSearch();
+  }
+});
+
+document.addEventListener('click', () => {
+  document.querySelectorAll('.menu').forEach(m => m.style.display = 'none');
+});
+
+renderLibrary();
