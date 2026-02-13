@@ -248,7 +248,7 @@ function renderLibrary() {
             <button class="view">View details</button>
             <button class="remove">Remove</button>
           </div>
-          <img alt="Loading..." src="${m.poster ? IMG+m.poster : ''}">
+          <img alt="Image Unavailable" src="${m.poster ? IMG+m.poster : ''}">
           <div class="p">
             <h3>${m.title}</h3>
             <div style="font-size:0.75rem; color:#9aa0b4; margin-bottom:6px;">${genreNames}</div>
@@ -361,7 +361,7 @@ function renderResults(list) {
       <div class="menu">
         <button class="view">View details</button>
       </div>
-      <img alt="Loading..." src="${m.poster ? IMG+m.poster : ''}">
+      <img alt="Image Unavailable" src="${m.poster ? IMG+m.poster : ''}">
       <div class="p">
         <div class="muted">${m.rating?.toFixed?.(1) ?? '—'}</div>
         <strong>${m.title}</strong>
@@ -450,7 +450,7 @@ function renderPeopleResults(list) {
     r.className = 'result';
     
     r.innerHTML = `
-      <img src="${imgUrl}" style="height: 260px; object-fit: cover; background: #222;">
+      <img alt="Image Unavailable" src="${imgUrl}" style="height: 260px; object-fit: cover; background: #222;">
       <div class="p">
         <strong>${p.name}</strong>
         <div class="muted">${p.known_for_department || 'Unknown'}</div>
