@@ -200,6 +200,7 @@ h3 {
 
 .menu-btn:hover {
   border-radius: 25%;
+  background-color: #000;
   transition-duration: 400ms;
 }
 
