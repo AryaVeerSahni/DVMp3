@@ -238,7 +238,7 @@ function renderLibrary() {
             <button class="remove">Remove</button>
             <button class="review-btn">Personal Review</button>
           </div>
-          <img src="${m.poster ? IMG+m.poster : ''}">
+          <img alt="Loading..." src="${m.poster ? IMG+m.poster : ''}">
           <div class="p">
             <h3>${m.title}</h3>
             <div style="font-size:0.75rem; color:#9aa0b4; margin-bottom:6px;">${genreNames}</div>
@@ -348,7 +348,7 @@ function renderResults(list) {
       <div class="menu">
         <button class="view">View details</button>
       </div>
-      <img src="${m.poster ? IMG+m.poster : ''}">
+      <img alt="Loading..." src="${m.poster ? IMG+m.poster : ''}">
       <div class="p">
         <div class="muted">${m.rating?.toFixed?.(1) ?? '—'}</div>
         <strong>${m.title}</strong>
