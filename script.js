@@ -67,7 +67,7 @@ const detailsBody = document.getElementById('detailsBody');
 if (savedData.sortType) sortType.value = savedData.sortType;
 if (savedData.sortDir) {
   sortDirBtn.dataset.dir = savedData.sortDir;
-  sortDirBtn.textContent = savedData.sortDir === 'asc' ? '⬆️' : '⬇️';
+  sortDirBtn.innerHTML = savedData.sortDir === 'asc' ? '&#8593' : '&#8595';
 }
 
 const filterToggle = document.getElementById('filterToggle');
@@ -211,11 +211,22 @@ function renderLibrary() {
 
   if (!state.library.length) {
     libSearch.style.display = `none`;
+    filterToggle.style.display = `none`;
+    sortType.style.display = `none`;
+    sortDirBtn.style.display = `none`;
     libEl.innerHTML = `<div class="empty">Your library is empty. Click on the "Add Movie" Button to add a movie!</div>`;
     return;
-  }
+  }else {filterToggle.style.display = `block`;}
 
-  if (state.library.length > 1) {libSearch.style.display = `block`;}else {libSearch.style.display = `none`;}
+  if (state.library.length > 1) {
+    libSearch.style.display = `block`;
+    sortType.style.display = `block`;
+    sortDirBtn.style.display = `block`;
+  }else {
+    libSearch.style.display = `none`;
+    sortType.style.display = `none`;
+    sortDirBtn.style.display = `none`;
+  }
   
   if (list.length === 0) {
     libEl.innerHTML = `<div class="empty" style="font-size:1.2rem">No movies match your filters.</div>`;
@@ -236,25 +247,27 @@ function renderLibrary() {
           <div class="menu">
             <button class="view">View details</button>
             <button class="remove">Remove</button>
-            <button class="review-btn">Personal Review</button>
           </div>
           <img alt="Loading..." src="${m.poster ? IMG+m.poster : ''}">
           <div class="p">
             <h3>${m.title}</h3>
             <div style="font-size:0.75rem; color:#9aa0b4; margin-bottom:6px;">${genreNames}</div>
-            <div class="ratings">
-              <span class="muted">TMDB ${m.rating?.toFixed?.(1) ?? '—'}</span>
-              <div class="rating-control">
-                <button class="rate-btn minus">-</button>
-                <input class="rating-value" type="number" min="0" max="10" step="0.1" value="${m.myScore.toFixed(1)}">
-                <button class="rate-btn plus">+</button>
-              </div>
+            <span class="muted">TMDB ${m.rating?.toFixed?.(1) ?? '—'}</span>
+            <div class="rating-control">
+              <button class="rate-btn minus">-</button>
+              <input class="rating-value" type="number" min="0" max="10" step="0.1" value="${m.myScore.toFixed(1)}">
+              <button class="rate-btn plus">+</button>
             </div>
+            <div class="review-btn">Your Review</div>
           </div>
     `;
     
     const menu = c.querySelector('.menu');
-    c.querySelector('.menu-btn').onclick = e => { e.stopPropagation(); menu.style.display = menu.style.display === 'block' ? 'none' : 'block'; };
+    c.querySelector('.menu-btn').onclick = e => {
+      e.stopPropagation(); 
+      menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+      menu.style.display === `block` ? c.querySelector('.menu-btn').style.background = `#000` : c.querySelector('.menu-btn').style.background = `#00000050`;
+    };
     c.querySelector('.view').onclick = () => showDetails(m);
     c.querySelector('.remove').onclick = () => {
       state.library = state.library.filter(x => x.id !== m.id);
@@ -329,10 +342,10 @@ sortDirBtn.onclick = () => {
   const current = sortDirBtn.dataset.dir;
   if (current === 'asc') {
     sortDirBtn.dataset.dir = 'desc';
-    sortDirBtn.textContent = '⬇️';
+    sortDirBtn.innerHTML = '&#8595';
   } else {
     sortDirBtn.dataset.dir = 'asc';
-    sortDirBtn.textContent = '⬆️';
+    sortDirBtn.innerHTML = '&#8593';
   }
   saveData();
   renderLibrary();
