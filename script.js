@@ -393,49 +393,114 @@ async function performSearch() {
   searchState.cachedMovies = [];
 
   try {
-    let movies = [];
-
     if (type === 'movie') {
       const d = await api.searchMovie(q, 1);
       searchState.totalPages = d.total_pages;
-      movies = d.results;
-    } else {
-      const p = await api.searchPerson(q);
-      if (!p.results.length) throw new Error('No person found');
-      const personId = p.results[0].id;
-      searchState.personId = personId;
-      const credits = await api.credits(personId);
-
-      if (type === 'actor') movies = credits.cast;
-      if (type === 'director') movies = credits.crew.filter(m => m.job === 'Director');
-      if (type === 'producer') movies = credits.crew.filter(m => m.job === 'Producer');
-
-      searchState.totalPages = 1;
-    }
-
-    const map = new Map();
-    movies.forEach(m => {
-      map.set(m.id, {
+      
+      const list = d.results.map(m => ({
         id: m.id,
         title: m.title,
         poster: m.poster_path,
         rating: m.vote_average,
         releaseDate: m.release_date,
         genreIds: m.genre_ids || []
-      });
-    });
+      }));
 
-    const list = [...map.values()];
-    searchState.cachedMovies = list;
+      searchState.cachedMovies = list;
+      statusEl.textContent = list.length ? '' : 'No results found';
+      renderResults(list);
 
-    statusEl.textContent = list.length ? '' : 'No results found';
-    renderResults(list);
-
-    if (type === 'movie' && searchState.page < searchState.totalPages) {
-      loadMoreBtn.style.display = 'block';
+      if (searchState.page < searchState.totalPages) {
+        loadMoreBtn.style.display = 'block';
+      }
+    } else {
+      const p = await api.searchPerson(q);
+      if (!p.results.length) throw new Error('No person found');
+      
+      renderPeopleResults(p.results);
+      statusEl.textContent = `Select a ${type} to see their movies:`;
     }
   } catch (e) {
     statusEl.textContent = e.message;
+  }
+}
+
+function renderPeopleResults(list) {
+  resultsEl.innerHTML = '';
+  
+  list.forEach(p => {
+    const imgUrl = p.profile_path ? IMG + p.profile_path : '';
+    
+    const r = document.createElement('div');
+    r.className = 'result';
+    
+    r.innerHTML = `
+      <img src="${imgUrl}" style="height: 260px; object-fit: cover; background: #222;">
+      <div class="p">
+        <strong>${p.name}</strong>
+        <div class="muted">${p.known_for_department || 'Unknown'}</div>
+        <div style="margin-top:6px">
+            <button class="view-credits-btn">View Movies</button>
+        </div>
+      </div>
+    `;
+
+    r.querySelector('.view-credits-btn').onclick = () => {
+        fetchPersonCredits(p.id, p.name);
+    };
+
+    resultsEl.appendChild(r);
+  });
+}
+
+async function fetchPersonCredits(personId, personName) {
+  statusEl.textContent = `Loading movies for ${personName}…`;
+  resultsEl.innerHTML = '';
+  
+  try {
+    const credits = await api.credits(personId);
+    let movies = [];
+    const type = typeSelect.value;
+
+    if (type === 'actor') {
+        movies = credits.cast;
+    } else if (type === 'director') {
+        movies = credits.crew.filter(m => m.job === 'Director');
+    } else if (type === 'producer') {
+        movies = credits.crew.filter(m => m.job === 'Producer');
+    }
+
+    const map = new Map();
+    movies.forEach(m => {
+      if (!map.has(m.id)) {
+        map.set(m.id, {
+          id: m.id,
+          title: m.title,
+          poster: m.poster_path,
+          rating: m.vote_average,
+          releaseDate: m.release_date,
+          genreIds: m.genre_ids || []
+        });
+      }
+    });
+
+    const list = [...map.values()];
+
+    searchState.cachedMovies = list;
+    searchState.personId = personId;
+    
+    if (list.length === 0) {
+        statusEl.textContent = `No movies found for ${personName} as ${type}.`;
+    } else {
+        statusEl.textContent = `Showing ${list.length} movies for ${personName}`;
+        renderResults(list);
+    }
+    
+    loadMoreBtn.style.display = 'none';
+
+  } catch (e) {
+    statusEl.textContent = 'Error loading movies.';
+    console.error(e);
   }
 }
 
