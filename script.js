@@ -213,7 +213,9 @@ function renderLibrary() {
     libSearch.style.display = `none`;
     libEl.innerHTML = `<div class="empty">Your library is empty. Click on the "Add Movie" Button to add a movie!</div>`;
     return;
-  }else {libSearch.style.display = `block`;}
+  }
+
+  if (state.library.length > 1) {libSearch.style.display = `block`;}else {libSearch.style.display = `none`;}
   
   if (list.length === 0) {
     libEl.innerHTML = `<div class="empty" style="font-size:1.2rem">No movies match your filters.</div>`;
