@@ -173,7 +173,7 @@ h3 {
 .row {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
+  
 }
 
 .row input,
@@ -337,6 +337,9 @@ h3 {
   backdrop-filter: blur(5px);
   padding: 15px 20px;
   border-bottom: 1px solid #252d3d;
+  position: sticky;
+  top: 0;
+  z-index: 75;
 }
 
 .filter-row {
@@ -410,6 +413,10 @@ h3 {
 @media screen and (max-width: 800px) {
   .modal {
     max-height: 90vh;
+  }
+
+  .row {
+    flex-direction: column;
   }
 
   h1 {

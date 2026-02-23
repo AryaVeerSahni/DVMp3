@@ -231,6 +231,10 @@ function renderLibrary() {
     return;
   }
 
+  let headerHeight = document.querySelector('header').offsetHeight;
+
+  filterPanel.style.top = `${headerHeight}px`
+
   const grid = document.createElement('div');
   grid.className = 'grid';
 
