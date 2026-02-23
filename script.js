@@ -211,12 +211,11 @@ function renderLibrary() {
 
   if (!state.library.length) {
     libSearch.style.display = `none`;
-    filterToggle.style.display = `none`;
     sortType.style.display = `none`;
     sortDirBtn.style.display = `none`;
     libEl.innerHTML = `<div class="empty">Your library is empty. Click on the "Add Movie" Button to add a movie!</div>`;
     return;
-  }else {filterToggle.style.display = `block`;}
+  }
 
   if (state.library.length > 1) {
     libSearch.style.display = `block`;
@@ -227,6 +226,12 @@ function renderLibrary() {
     sortType.style.display = `none`;
     sortDirBtn.style.display = `none`;
   }
+
+  if(!state.library.length && filterPanel.style.opacity == 0) {
+    filterToggle.style.display = `none`;
+  }else if(!state.library.length && filterPanel.style.opacity == 1) {
+    filterToggle.style.display = `block`;
+  }else {filterToggle.style.display = `block`;}
   
   if (list.length === 0) {
     libEl.innerHTML = `<div class="empty" style="font-size:1.2rem">No movies match your filters.</div>`;
@@ -554,6 +559,7 @@ function closeModal() {
   typeSelect.value = 'movie';
 }
 
+const heading = document.getElementById('heading');
 document.getElementById('addBtn').onclick = openModal;
 document.getElementById('closeBtn').onclick = closeModal;
 document.getElementById('searchBtn').onclick = performSearch;
@@ -569,6 +575,13 @@ queryInput.addEventListener('keydown', e => {
 
 document.addEventListener('click', () => {
   document.querySelectorAll('.menu').forEach(m => m.style.display = 'none');
+});
+
+heading.style.cursor = 'pointer';
+
+heading.onclick = () => window.scrollTo({
+  top: 0,
+  behavior: 'smooth'
 });
 
 renderLibrary();
