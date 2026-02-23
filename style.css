@@ -326,16 +326,17 @@ h3 {
   min-width: 40px;
 }
 
-.filter-panel {
-  background: #111620;
-  padding: 15px 20px;
-  border-bottom: 1px solid #252d3d;
-  animation: slideDown 0.2s ease-out;
+#sortDirBtn:hover,
+#filterToggle:hover {
+  background-color: var(--pri);
+  color: var(--bg);
 }
 
-@keyframes slideDown {
-  from { transform: translateY(-10px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+.filter-panel {
+  background-color: rgba(6, 9, 17, 0.85);
+  backdrop-filter: blur(5px);
+  padding: 15px 20px;
+  border-bottom: 1px solid #252d3d;
 }
 
 .filter-row {

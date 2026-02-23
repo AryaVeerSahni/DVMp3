@@ -32,20 +32,17 @@ async function fetchJSON(url) {
 }
 
 const api = {
-  searchMovie: (q, page = 1) =>
-    fetchJSON(`${TMDB}/search/movie?api_key=${TMDB_KEY}&query=${encodeURIComponent(q)}&page=${page}`),
+  searchMovie: (q, page = 1) => fetchJSON(`${TMDB}/search/movie?api_key=${TMDB_KEY}&query=${encodeURIComponent(q)}&page=${page}`),
 
-  searchPerson: (q) =>
-    fetchJSON(`${TMDB}/search/person?api_key=${TMDB_KEY}&query=${encodeURIComponent(q)}`),
+  searchPerson: (q) => fetchJSON(`${TMDB}/search/person?api_key=${TMDB_KEY}&query=${encodeURIComponent(q)}`),
 
-  credits: (id) =>
-    fetchJSON(`${TMDB}/person/${id}/movie_credits?api_key=${TMDB_KEY}`),
+  credits: (id) => fetchJSON(`${TMDB}/person/${id}/movie_credits?api_key=${TMDB_KEY}`),
 
-  movieDetails: (id) =>
-    fetchJSON(`${TMDB}/movie/${id}?api_key=${TMDB_KEY}`),
+  movieDetails: (id) => fetchJSON(`${TMDB}/movie/${id}?api_key=${TMDB_KEY}`),
 
-  movieCredits: (id) =>
-    fetchJSON(`${TMDB}/movie/${id}/credits?api_key=${TMDB_KEY}`)
+  movieCredits: (id) => fetchJSON(`${TMDB}/movie/${id}/credits?api_key=${TMDB_KEY}`),
+
+  discoverMovies: (page = 1) => fetchJSON(`${TMDB}/discover/movie?api_key=${TMDB_KEY}&page=${page}&sort_by=popularity.desc`)
 };
 
 const libEl = document.getElementById('library');
@@ -213,9 +210,11 @@ function renderLibrary() {
     libSearch.style.display = `none`;
     sortType.style.display = `none`;
     sortDirBtn.style.display = `none`;
+    filterToggle.style.display = `none`;
+    filterPanel.style.display = `none`;
     libEl.innerHTML = `<div class="empty">Your library is empty. Click on the "Add Movie" Button to add a movie!</div>`;
     return;
-  }
+  }else {filterToggle.style.display = `block`;}
 
   if (state.library.length > 1) {
     libSearch.style.display = `block`;
@@ -226,12 +225,6 @@ function renderLibrary() {
     sortType.style.display = `none`;
     sortDirBtn.style.display = `none`;
   }
-
-  if(!state.library.length && filterPanel.style.opacity == 0) {
-    filterToggle.style.display = `none`;
-  }else if(!state.library.length && filterPanel.style.opacity == 1) {
-    filterToggle.style.display = `block`;
-  }else {filterToggle.style.display = `block`;}
   
   if (list.length === 0) {
     libEl.innerHTML = `<div class="empty" style="font-size:1.2rem">No movies match your filters.</div>`;
@@ -244,6 +237,7 @@ function renderLibrary() {
   list.forEach(m => {
     const c = document.createElement('div');
     c.className = 'card';
+    const reviewGiven = (!m.personalReview ? 'Pending' : 'Given');
     
     const genreNames = (m.genreIds || []).slice(0, 2).map(id => GENRES[id]).filter(Boolean).join(', ');
 
@@ -263,7 +257,7 @@ function renderLibrary() {
               <input class="rating-value" type="number" min="0" max="10" step="0.1" value="${m.myScore.toFixed(1)}">
               <button class="rate-btn plus">+</button>
             </div>
-            <div class="review-btn">Your Review</div>
+            <div class="review-btn">Your Review (${reviewGiven})</div>
           </div>
     `;
     
@@ -400,7 +394,6 @@ function renderResults(list) {
 async function performSearch() {
   const q = queryInput.value.trim();
   const type = typeSelect.value;
-  if (!q) return;
 
   resultsEl.innerHTML = '';
   statusEl.textContent = 'Loading…';
@@ -413,6 +406,24 @@ async function performSearch() {
   searchState.cachedMovies = [];
 
   try {
+    if (!q) {
+      const randomPage = Math.floor(Math.random() * 50) + 1;
+
+      const d = await api.discoverMovies(randomPage);
+
+      const list = d.results.map(m => ({
+        id: m.id,
+        title: m.title,
+        poster: m.poster_path,
+        rating: m.vote_average,
+        releaseDate: m.release_date,
+        genreIds: m.genre_ids || []
+      }));
+
+      statusEl.textContent = 'Discovered random movies for you';
+      renderResults(list);
+      return;
+    }
     if (type === 'movie') {
       const d = await api.searchMovie(q, 1);
       searchState.totalPages = d.total_pages;
